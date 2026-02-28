@@ -6,27 +6,42 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-
-@app.get("/")
-def health():
-    return jsonify(ok=True, service="backend alive")
+API_KEY = os.getenv("GEMINI_API_KEY")
 
 @app.post("/chat")
 def chat():
-    data = request.get_json(silent=True) or {}
-    user_text = data.get("message", "")
+    try:
+        data = request.get_json(silent=True) or {}
+        message = (data.get("message") or "").strip()
 
-MODEL = os.getenv("GEMINI_MODEL", "models/gemini-1.5-flash")
-url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL}:generateContent"    payload = {"contents": [{"parts": [{"text": user_text}]}]}
+        if not message:
+            return jsonify(error="Brak wiadomości"), 400
 
-    r = requests.post(url, params={"key": GEMINI_API_KEY}, json=payload, timeout=30)
-    r.raise_for_status()
+        if not API_KEY:
+            return jsonify(error="Brak GEMINI_API_KEY"), 500
 
-    out = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    return jsonify(reply=out)
+        url = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
 
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", "10000"))
-    app.run(host="0.0.0.0", port=port)
+        payload = {
+            "contents": [
+                {"parts": [{"text": message}]}
+            ]
+        }
+
+        r = requests.post(
+            url,
+            params={"key": API_KEY},
+            json=payload,
+            timeout=30
+        )
+
+        if not r.ok:
+            return jsonify(error="Gemini API error", status=r.status_code, details=r.text), 502
+
+        j = r.json()
+        text = j["candidates"][0]["content"]["parts"][0]["text"]
+
+        return jsonify(reply=text)
+
+    except Exception as e:
+        return jsonify(error="Backend exception", details=str(e)), 500
