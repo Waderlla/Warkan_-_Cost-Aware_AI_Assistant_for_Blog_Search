@@ -18,8 +18,8 @@ def chat():
     data = request.get_json(silent=True) or {}
     user_text = data.get("message", "")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-    payload = {"contents": [{"parts": [{"text": user_text}]}]}
+MODEL = os.getenv("GEMINI_MODEL", "models/gemini-1.5-flash")
+url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL}:generateContent"    payload = {"contents": [{"parts": [{"text": user_text}]}]}
 
     r = requests.post(url, params={"key": GEMINI_API_KEY}, json=payload, timeout=30)
     r.raise_for_status()
