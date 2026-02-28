@@ -6,12 +6,12 @@ import requests
 
 app = FastAPI()
 
-# Pozwól na zapytania tylko z Twojej domeny WP (albo "*" na czas testów)
-ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "*")
+# Pozwól na zapytania tylko z Twojej domeny WP
+ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[ALLOWED_ORIGIN] if ALLOWED_ORIGIN != "*" else ["*"],
+    allow_origins=[ALLOWED_ORIGIN],
     allow_methods=["POST", "OPTIONS", "GET"],
     allow_headers=["Content-Type"],
 )
