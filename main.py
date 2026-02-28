@@ -45,3 +45,16 @@ def chat():
 
     except Exception as e:
         return jsonify(error="Backend exception", details=str(e)), 500
+
+@app.get("/models")
+def models():
+    if not API_KEY:
+        return jsonify(error="Brak GEMINI_API_KEY"), 500
+
+    url = "https://generativelanguage.googleapis.com/v1/models"
+    r = requests.get(url, params={"key": API_KEY}, timeout=30)
+
+    if not r.ok:
+        return jsonify(error="ListModels error", status=r.status_code, details=r.text), 502
+
+    return jsonify(r.json())
