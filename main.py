@@ -1,164 +1,55 @@
-import os
-import requests
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import gradio as gr
+from transformers import pipeline
 
-app = Flask(__name__)
+# Mały, lekki model instrukcyjny (działa na CPU)
+# Jakość: "OK do prostych odpowiedzi", stabilność: wysoka
+MODEL_ID = "google/flan-t5-small"
 
-# ====== USTAWIENIA (DARMOWY TRYB) ======
-# 1) Ograniczamy długość wejścia, żeby nie spalić limitu
-MAX_INPUT_CHARS = int(os.getenv("MAX_INPUT_CHARS", "1200"))
+gen = pipeline(
+    "text2text-generation",
+    model=MODEL_ID,
+)
 
-# 2) Model z ENV (na Render ustaw: GEMINI_MODEL=models/gemini-2.0-flash)
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.0-flash")
+MAX_TURNS = 6
+MAX_INPUT_CHARS = 800
+MAX_NEW_TOKENS = 128
 
-# 3) Klucz z ENV (na Render ustaw: GEMINI_API_KEY=...)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+SYSTEM_HINT = (
+    "Jesteś asystentem bloga Waderlla. Odpowiadaj krótko, konkretnie i po polsku. "
+    "Jeśli nie wiesz, powiedz wprost i zaproponuj co użytkownik może sprawdzić na blogu."
+)
 
-# 4) CORS – na Render ustaw: ALLOWED_ORIGIN=https://olgamironczuk.pl
-ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "*").strip()
-
-if ALLOWED_ORIGIN == "*":
-    CORS(app, resources={r"/*": {"origins": "*"}})
-else:
-    origins = [o.strip() for o in ALLOWED_ORIGIN.split(",") if o.strip()]
-    CORS(app, resources={r"/*": {"origins": origins}})
-
-
-# ====== POMOCNICZE ======
-def _safe_json(resp: requests.Response):
-    """Spróbuj zdekodować JSON, jak nie wyjdzie – zwróć tekst."""
-    try:
-        return resp.json()
-    except Exception:
-        return {"raw": resp.text}
-
-
-def _looks_like_quota(error_obj) -> bool:
-    """Wykryj typowe komunikaty o limicie/quocie."""
-    s = str(error_obj).lower()
-    keywords = [
-        "quota", "resource_exhausted", "rate limit",
-        "exceeded", "too many requests", "limit"
-    ]
-    return any(k in s for k in keywords)
-
-
-# ====== ENDPOINTY ======
-@app.get("/")
-def health():
-    # To usuwa "Not Found" na głównym adresie backendu
-    return jsonify(ok=True, service="warkan-backend")
-
-
-@app.post("/chat")
-def chat():
-    # 1) Walidacja wejścia
-    data = request.get_json(silent=True) or {}
-    message = (data.get("message") or "").strip()
-
+def chat(message, history):
+    message = (message or "").strip()
     if not message:
-        return jsonify(error="Wpisz wiadomość (pole 'message')."), 400
+        return "Napisz wiadomość."
 
-    # limit znaków, żeby nie przepalać darmowego limitu
-    if len(message) > MAX_INPUT_CHARS:
-        message = message[:MAX_INPUT_CHARS]
+    message = message[:MAX_INPUT_CHARS]
+    history = history[-MAX_TURNS:] if history else []
 
-    # 2) Walidacja ENV
-    if not GEMINI_API_KEY:
-        return jsonify(error="Brak GEMINI_API_KEY w Render → Environment."), 500
+    # Budujemy krótki kontekst z historii (żeby nie rosło w nieskończoność)
+    context_lines = [SYSTEM_HINT]
+    for u, a in history:
+        if u:
+            context_lines.append(f"Użytkownik: {str(u)[:MAX_INPUT_CHARS]}")
+        if a:
+            context_lines.append(f"Asystent: {str(a)[:MAX_INPUT_CHARS]}")
+    context_lines.append(f"Użytkownik: {message}")
+    context_lines.append("Asystent:")
 
-    if not GEMINI_MODEL.startswith("models/"):
-        return jsonify(
-            error="Zły GEMINI_MODEL. Musi zaczynać się od 'models/'.",
-            example="models/gemini-2.0-flash"
-        ), 500
+    prompt = "\n".join(context_lines)
 
-    # 3) Zapytanie do Gemini
-    url = f"https://generativelanguage.googleapis.com/v1beta/{GEMINI_MODEL}:generateContent"
-    payload = {
-        "contents": [
-            {"parts": [{"text": message}]}
-        ]
-    }
+    out = gen(prompt, max_new_tokens=MAX_NEW_TOKENS, do_sample=False)[0]["generated_text"]
+    # flan-t5 potrafi zwrócić cały tekst; wycinamy tylko końcówkę po "Asystent:"
+    if "Asystent:" in out:
+        out = out.split("Asystent:", 1)[-1].strip()
 
-    try:
-        r = requests.post(
-            url,
-            params={"key": GEMINI_API_KEY},
-            json=payload,
-            timeout=30
-        )
-    except requests.exceptions.Timeout:
-        return jsonify(error="Timeout: Gemini nie odpowiedział na czas."), 504
-    except Exception as e:
-        return jsonify(error="Błąd połączenia z Gemini.", details=str(e)), 502
+    return out or "Nie jestem pewien. Spróbuj doprecyzować pytanie."
 
-    # 4) Obsługa błędów Google (żeby nie było 500)
-    if not r.ok:
-        err = _safe_json(r)
+demo = gr.ChatInterface(
+    fn=chat,
+    title="Warkan AI",
+    description="Asystent bloga (darmowy, CPU).",
+)
 
-        # limit darmowego API / quota
-        if r.status_code in (429, 403) and _looks_like_quota(err):
-            return jsonify(
-                error="Limit darmowego API został wyczerpany. Spróbuj później.",
-                status=r.status_code
-            ), 429
-
-        # model not found itp.
-        return jsonify(
-            error="Gemini API error",
-            status=r.status_code,
-            details=err
-        ), 502
-
-    # 5) Parsowanie odpowiedzi
-    j = _safe_json(r)
-    text = (
-        j.get("candidates", [{}])[0]
-         .get("content", {})
-         .get("parts", [{}])[0]
-         .get("text")
-    )
-
-    if not text:
-        return jsonify(error="Brak tekstu w odpowiedzi Gemini.", raw=j), 502
-
-    return jsonify(reply=text)
-
-
-@app.get("/models")
-def models():
-    # Diagnostyka: lista modeli dostępnych dla Twojego klucza
-    if not GEMINI_API_KEY:
-        return jsonify(error="Brak GEMINI_API_KEY"), 500
-
-    try:
-        r = requests.get(
-            "https://generativelanguage.googleapis.com/v1beta/models",
-            params={"key": GEMINI_API_KEY},
-            timeout=12
-        )
-    except requests.exceptions.Timeout:
-        return jsonify(error="Timeout na ListModels."), 504
-    except Exception as e:
-        return jsonify(error="Błąd połączenia (ListModels).", details=str(e)), 502
-
-    if not r.ok:
-        return jsonify(error="ListModels error", status=r.status_code, details=_safe_json(r)), 502
-
-    j = _safe_json(r)
-    slim = []
-    for m in j.get("models", []):
-        slim.append({
-            "name": m.get("name"),
-            "methods": m.get("supportedGenerationMethods", [])
-        })
-
-    return jsonify(models=slim)
-
-
-if __name__ == "__main__":
-    # Lokalnie (na Render i tak odpalasz przez gunicorn)
-    port = int(os.getenv("PORT", "10000"))
-    app.run(host="0.0.0.0", port=port)
+demo.launch()
