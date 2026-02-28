@@ -6,18 +6,19 @@ import requests
 
 app = FastAPI()
 
-# WordPress domena, która może wysyłać zapytania (CORS)
+# Pozwól na zapytania tylko z Twojej domeny WP (albo "*" na czas testów)
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "*")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[ALLOWED_ORIGIN] if ALLOWED_ORIGIN != "*" else ["*"],
-    allow_methods=["POST", "OPTIONS"],
+    allow_methods=["POST", "OPTIONS", "GET"],
     allow_headers=["Content-Type"],
 )
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-class Msg(BaseModel):
+class ChatIn(BaseModel):
     message: str
 
 @app.get("/")
@@ -25,22 +26,32 @@ def health():
     return {"status": "ok"}
 
 @app.post("/chat")
-def chat(m: Msg):
-    text = (m.message or "").strip()
+def chat(payload: ChatIn):
+    text = (payload.message or "").strip()
     if len(text) < 2:
         return {"error": "Wpisz wiadomość."}
     if not GEMINI_API_KEY:
-        return {"error": "Brak GEMINI_API_KEY na serwerze (env)."}
+        return {"error": "Brak GEMINI_API_KEY w Environment na Render."}
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-    payload = {"contents": [{"parts": [{"text": text}]}]}
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/"
+        f"models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+    )
 
-    r = requests.post(url, json=payload, timeout=30)
+    body = {
+        "contents": [
+            {"parts": [{"text": text}]}
+        ]
+    }
+
+    r = requests.post(url, json=body, timeout=30)
     data = r.json()
 
     try:
         answer = data["candidates"][0]["content"]["parts"][0]["text"]
     except Exception:
-        answer = "Nie udało się odczytać odpowiedzi."
+        # jeśli Gemini zwróci błąd, pokaż go czytelnie
+        api_msg = data.get("error", {}).get("message")
+        return {"error": api_msg or "Nie udało się odczytać odpowiedzi z Gemini."}
 
     return {"answer": answer}
