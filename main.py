@@ -16,8 +16,13 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.0-flash")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # 4) CORS – na Render ustaw: ALLOWED_ORIGIN=https://olgamironczuk.pl
-ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "*")
-CORS(app, resources={r"/*": {"origins": ALLOWED_ORIGIN}})
+ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "*").strip()
+
+if ALLOWED_ORIGIN == "*":
+    CORS(app, resources={r"/*": {"origins": "*"}})
+else:
+    origins = [o.strip() for o in ALLOWED_ORIGIN.split(",") if o.strip()]
+    CORS(app, resources={r"/*": {"origins": origins}})
 
 
 # ====== POMOCNICZE ======
