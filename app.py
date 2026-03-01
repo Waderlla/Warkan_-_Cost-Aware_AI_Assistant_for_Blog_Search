@@ -192,7 +192,9 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
     if not CF_ACCOUNT_ID or not CF_API_TOKEN:
         return "Znalazłam pasujące wpisy poniżej."
 
-   items = "\n".join(
+    # 3) Budujemy czytelną, numerowaną listę wyników dla AI (max 3),
+    #    żeby model wiedział ile ma linków i nie dopisywał kolejnych.
+    items = "\n".join(
         [
             f"{i+1}. TYTUŁ: {r['title']}\n   LINK: {r['url']}\n   OPIS: {r['excerpt']}"
             for i, r in enumerate(results[:3])
@@ -200,17 +202,18 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
     )
     n = min(len(results), 3)
 
+    # 4) Prompt: naturalnie, ale twardo trzymamy się liczby wyników i zakazu nowych linków.
     prompt = (
-    "Jesteś asystentem mojego bloga.\n"
-    "Dostajesz listę wyników wyszukiwania z bloga. To są jedyne wpisy, na które możesz się powołać.\n"
-    "Nie dodawaj żadnych innych wpisów, tytułów ani linków.\n\n"
-    f"Masz dokładnie {n} wynik(ów). Opisz dokładnie {n} wpis(ów), ani mniej, ani więcej.\n"
-    "Odpowiedź ma brzmieć naturalnie, krótko i konkretnie.\n"
-    "Dla każdego wpisu podaj link, a pod nim 1 zdanie opisu oparte wyłącznie na OPISIE z listy.\n"
-    "Nie pisz osobnej sekcji 'Linki:' i nie dodawaj dodatkowych propozycji.\n\n"
-    f"Pytanie użytkownika: {question}\n\n"
-    f"WYNIKI:\n{items}\n"
-)
+        "Jesteś asystentem mojego bloga.\n"
+        "Dostajesz listę wyników wyszukiwania z bloga. To są jedyne wpisy, na które możesz się powołać.\n"
+        "Nie dodawaj żadnych innych wpisów, tytułów ani linków.\n\n"
+        f"Masz dokładnie {n} wynik(ów). Opisz dokładnie {n} wpis(ów), ani mniej, ani więcej.\n"
+        "Odpowiedź ma brzmieć naturalnie, krótko i konkretnie.\n"
+        "Dla każdego wpisu podaj link, a pod nim 1 zdanie opisu oparte wyłącznie na OPISIE z listy.\n"
+        "Nie pisz osobnej sekcji 'Linki:' i nie dodawaj dodatkowych propozycji.\n\n"
+        f"Pytanie użytkownika: {question}\n\n"
+        f"WYNIKI:\n{items}\n"
+    )
 
     url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/run/{CF_MODEL}"
     headers = {
