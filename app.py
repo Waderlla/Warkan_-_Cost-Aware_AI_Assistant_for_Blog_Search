@@ -193,10 +193,10 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
         return "Znalazłam pasujące wpisy poniżej."
 
    items = "\n".join(
-    [
-        f"{i+1}. TYTUŁ: {r['title']}\n   LINK: {r['url']}\n   OPIS: {r['excerpt']}"
-        for i, r in enumerate(results[:3])
-    ]
+        [
+            f"{i+1}. TYTUŁ: {r['title']}\n   LINK: {r['url']}\n   OPIS: {r['excerpt']}"
+            for i, r in enumerate(results[:3])
+        ]
     )
     n = min(len(results), 3)
 
