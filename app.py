@@ -192,19 +192,25 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
     if not CF_ACCOUNT_ID or not CF_API_TOKEN:
         return "Znalazłam pasujące wpisy poniżej."
 
-    bullets = "\n".join(
-        [f"- {r['title']} ({r['url']}): {r['excerpt']}" for r in results[:5]]
-    )
+   items = "\n".join(
+    [
+        f"{i+1}. TYTUŁ: {r['title']}\n   LINK: {r['url']}\n   OPIS: {r['excerpt']}"
+        for i, r in enumerate(results[:3])
+    ]
+)
+n = min(len(results), 3)
 
     prompt = (
-        "Jesteś asystentem bloga.\n"
-        "Odpowiadasz WYŁĄCZNIE na podstawie listy wyników.\n"
-        "Nie wolno Ci dodawać żadnych nowych tytułów, linków ani tematów.\n"
-        "Max 6 zdań.\n\n"
-        f"Pytanie: {question}\n\n"
-        f"Wyniki:\n{bullets}\n\n"
-        "Napisz krótką odpowiedź i wskaż 1–3 najtrafniejsze wpisy (tytuł + link)."
-    )
+    "Jesteś asystentem mojego bloga.\n"
+    "Dostajesz listę wyników wyszukiwania z bloga. To są jedyne wpisy, na które możesz się powołać.\n"
+    "Nie dodawaj żadnych innych wpisów, tytułów ani linków.\n\n"
+    f"Masz dokładnie {n} wynik(ów). Opisz dokładnie {n} wpis(ów), ani mniej, ani więcej.\n"
+    "Odpowiedź ma brzmieć naturalnie, krótko i konkretnie.\n"
+    "Dla każdego wpisu podaj link, a pod nim 1 zdanie opisu oparte wyłącznie na OPISIE z listy.\n"
+    "Nie pisz osobnej sekcji 'Linki:' i nie dodawaj dodatkowych propozycji.\n\n"
+    f"Pytanie użytkownika: {question}\n\n"
+    f"WYNIKI:\n{items}\n"
+)
 
     url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/run/{CF_MODEL}"
     headers = {
