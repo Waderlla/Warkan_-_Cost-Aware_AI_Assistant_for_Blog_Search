@@ -149,6 +149,38 @@ def ensure_index_fresh() -> None:
         build_index(posts)
 
 
+def extract_context_around_keyword(text: str, query: str, window: int = 400) -> str:
+    """
+    Zwraca fragment tekstu wokół pierwszego wystąpienia słowa z zapytania.
+    Jeśli nie znajdzie dopasowania, zwraca początek tekstu.
+    """
+
+    if not text:
+        return ""
+
+    text_lower = text.lower()
+    query_lower = query.lower()
+
+    pos = text_lower.find(query_lower)
+
+    # Jeśli nie znaleziono słowa — zwracamy początek tekstu
+    if pos == -1:
+        return text[:window * 2].strip()
+
+    start = max(pos - window, 0)
+    end = min(pos + len(query) + window, len(text))
+
+    snippet = text[start:end].strip()
+
+    # Dodajemy "..." jeśli ucięliśmy początek lub koniec
+    if start > 0:
+        snippet = "..." + snippet
+    if end < len(text):
+        snippet = snippet + "..."
+
+    return snippet
+    
+
 def search_posts(question: str, top_k: int = TOP_K) -> List[Dict[str, Any]]:
     ensure_index_fresh()
 
@@ -172,10 +204,17 @@ def search_posts(question: str, top_k: int = TOP_K) -> List[Dict[str, Any]]:
         if len(excerpt) > 240:
             excerpt = excerpt[:240] + "…"
 
+        context_snippet = extract_context_around_keyword(
+            p["content"],
+            question,
+            window=400
+        )
+
         results.append({
             "title": p["title"],
             "url": p["url"],
             "excerpt": excerpt,
+            "snippet": context_snippet,
             "score": score,
         })
 
@@ -195,10 +234,12 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
     # 3) Budujemy czytelną, numerowaną listę wyników dla AI (max 3),
     #    żeby model wiedział ile ma linków i nie dopisywał kolejnych.
     items = "\n".join(
-        [
-            f"{i+1}. TYTUŁ: {r['title']}\n   LINK: {r['url']}\n   OPIS: {r['excerpt']}"
-            for i, r in enumerate(results[:3])
-        ]
+         [
+            f"{i+1}. TYTUŁ: {r['title']}\n"
+            f"   LINK: {r['url']}\n"
+            f"   TEKST:\n{r.get('snippet','')}"
+               for i, r in enumerate(results[:3])
+         ]
     )
     n = min(len(results), 3)
 
