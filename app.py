@@ -250,7 +250,7 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
         "Nie dodawaj żadnych innych wpisów, tytułów ani linków.\n\n"
         f"Masz dokładnie {n} wynik(ów). Opisz dokładnie {n} wpis(ów), ani mniej, ani więcej.\n"
         "Odpowiedź ma brzmieć naturalnie, krótko i konkretnie.\n"
-        "Dla każdego wpisu podaj link, a pod nim 1 zdanie opisu oparte wyłącznie na OPISIE z listy.\n"
+        "Dla każdego wpisu podaj do max 3 zdań opisu oparte wyłącznie na OPISIE z listy.\n"
         "Nie pisz osobnej sekcji 'Linki:' i nie dodawaj dodatkowych propozycji.\n\n"
         f"Pytanie użytkownika: {question}\n\n"
         f"WYNIKI:\n{items}\n"
