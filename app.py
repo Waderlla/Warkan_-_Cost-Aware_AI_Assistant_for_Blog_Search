@@ -183,31 +183,27 @@ def search_posts(question: str, top_k: int = TOP_K) -> List[Dict[str, Any]]:
 
 
 def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
-    """
-    Cloudflare Workers AI: tylko do krótkiej, ładnej odpowiedzi na bazie listy wyników.
-    Jeśli AI nie działa / limit się skończy -> fallback bez AI.
-    """
-    # Fallback gdy brak tokena / brak konfiguracji
+    # 1) Jeśli wyszukiwarka nie znalazła żadnych wpisów, nie pytamy AI.
+    #    Model językowy ma tendencję do "dopowiadania" ogólników, więc robimy twardy fallback.
+    if not results:
+        return "Nie znalazłam wpisów pasujących do tego tematu. Spróbuj użyć innych słów lub doprecyzuj pytanie."
+
+    # 2) Jeśli nie mamy dostępu do AI (brak tokenów), nadal zwracamy same wyniki wyszukiwania.
     if not CF_ACCOUNT_ID or not CF_API_TOKEN:
-        return (
-            "Znalazłam pasujące wpisy poniżej."
-            if results else
-            "Nie znalazłam nic pewnego. Doprecyzuj pytanie (np. „CV ATS”, „portfolio”, „rekrutacja”)."
-        )
+        return "Znalazłam pasujące wpisy poniżej."
 
     bullets = "\n".join(
         [f"- {r['title']} ({r['url']}): {r['excerpt']}" for r in results[:5]]
-    ) or "Brak wyników."
+    )
 
     prompt = (
-        "Jesteś asystentem bloga. Polecasz wpisy z listy.\n"
-        "Zasady:\n"
-        "1) Nie wymyślaj tytułów ani linków.\n"
-        "2) Jeśli brak wyników, poproś o doprecyzowanie.\n"
-        "3) Odpowiedź krótka (max 6 zdań).\n\n"
+        "Jesteś asystentem bloga.\n"
+        "Odpowiadasz WYŁĄCZNIE na podstawie listy wyników.\n"
+        "Nie wolno Ci dodawać żadnych nowych tytułów, linków ani tematów.\n"
+        "Max 6 zdań.\n\n"
         f"Pytanie: {question}\n\n"
         f"Wyniki:\n{bullets}\n\n"
-        "Napisz odpowiedź i wskaż 1–3 najtrafniejsze wpisy (tytuł + link)."
+        "Napisz krótką odpowiedź i wskaż 1–3 najtrafniejsze wpisy (tytuł + link)."
     )
 
     url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/run/{CF_MODEL}"
@@ -219,31 +215,17 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
     try:
         r = requests.post(url, headers=headers, json={"prompt": prompt}, timeout=30)
 
-        # Free-tier / quota – najczęściej 429
         if r.status_code == 429:
-            return (
-                "Dziś wyczerpał się limit AI, ale poniżej masz najlepiej pasujące wpisy."
-                if results else
-                "Dziś wyczerpał się limit AI. Spróbuj jutro lub doprecyzuj pytanie."
-            )
+            return "Limit AI wyczerpany. Poniżej masz pasujące wpisy."
 
         r.raise_for_status()
         data = r.json()
 
-        # Typowa odpowiedź: {"success":true, "result":{"response":"..."}}
-        if isinstance(data, dict) and data.get("success") is False:
-            return "AI nie odpowiedziało. Poniżej masz pasujące wpisy."
-
-        text = ""
-        if isinstance(data, dict):
-            result = data.get("result", {})
-            if isinstance(result, dict):
-                text = result.get("response", "") or ""
-
-        return text.strip() or "Znalazłam pasujące wpisy poniżej."
+        result = data.get("result", {})
+        return result.get("response", "").strip() or "Znalazłam pasujące wpisy poniżej."
 
     except Exception:
-        return "Coś poszło nie tak po stronie AI. Poniżej masz pasujące wpisy."
+        return "Błąd po stronie AI. Poniżej masz pasujące wpisy."
 
 
 # =========================
