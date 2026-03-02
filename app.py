@@ -25,7 +25,7 @@ REFRESH_TOKEN = os.getenv("REFRESH_TOKEN", "")
 WP_FETCH_PER_PAGE = int(os.getenv("WP_FETCH_PER_PAGE", "100"))      # ile wpisów pobieramy jednorazowo z bloga
 MAX_POSTS_TO_INDEX = int(os.getenv("MAX_POSTS_TO_INDEX", "500"))    # maksymalna liczba wpisów, które zapisujemy w pamięci do przeszukiwania
 TOP_K = int(os.getenv("TOP_K", "5"))                                # nie wiem czy potrzebne
-MIN_SIMILARITY = float(os.getenv("MIN_SIMILARITY", "0.12"))
+MIN_SIMILARITY = float(os.getenv("MIN_SIMILARITY", "0.05"))
 
 WP_CATEGORY_ID = int(os.getenv("WP_CATEGORY_ID", "23"))             # kategoria "Kartka z pamiętnika" z ID = 23
 
