@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware              # obsługa CORS 
 from pydantic import BaseModel                                  # walidacja danych wejściowych (model requestu)
 from sklearn.feature_extraction.text import TfidfVectorizer     # zamiana tekstu na wektory (TF-IDF)
 from sklearn.metrics.pairwise import cosine_similarity          # obliczanie podobieństwa między tekstami
-from threading import Thread, Lock
 
 load_dotenv()
 
@@ -20,11 +19,10 @@ WP_BASE_URL = os.getenv("WP_BASE_URL", "")
 CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID", "")
 CF_API_TOKEN = os.getenv("CF_API_TOKEN", "")
 CF_MODEL = os.getenv("CF_MODEL", "@cf/meta/llama-3.1-8b-instruct")
-REFRESH_TOKEN = os.getenv("REFRESH_TOKEN", "")
 
 WP_FETCH_PER_PAGE = int(os.getenv("WP_FETCH_PER_PAGE", "100"))      # ile wpisów pobieramy jednorazowo z bloga
 MAX_POSTS_TO_INDEX = int(os.getenv("MAX_POSTS_TO_INDEX", "500"))    # maksymalna liczba wpisów, które zapisujemy w pamięci do przeszukiwania
-TOP_K = int(os.getenv("TOP_K", "5"))                                # nie wiem czy potrzebne
+TOP_K = int(os.getenv("TOP_K", "5"))                                
 MIN_SIMILARITY = float(os.getenv("MIN_SIMILARITY", "0.02"))
 
 WP_CATEGORY_ID = int(os.getenv("WP_CATEGORY_ID", "23"))             # kategoria "Kartka z pamiętnika" z ID = 23
@@ -40,12 +38,11 @@ app.add_middleware(                 # dodajemy zasadę, która będzie sprawdzan
     CORSMiddleware,                 # to mechanizm, który mówi przeglądarce: "tak, możesz rozmawiać z tym backendem"
     allow_origins=[WP_BASE_URL],    # tylko ta konkretna strona internetowa może korzystać z tego backendu
     allow_methods=["GET", "POST"],  # backend zgadza się tylko na pobieranie danych (GET) i wysyłanie pytań (POST)
-    allow_headers=["*"],            # przeglądarka może wysyłać dowolne dodatkowe informacje techniczne
 )
 
 
 class AskRequest(BaseModel):        # model danych wejściowych – określa, jak ma wyglądać zapytanie do API
-    question: str                    # pole wymagane w JSON-ie; użytkownik musi wysłać tekst pod nazwą "question"
+    question: str                   # pole wymagane w JSON-ie; użytkownik musi wysłać tekst pod nazwą "question"
 
 
 # __________ Pamięć aplikacji (tymczasowy schowek w RAM serwera) __________
@@ -56,14 +53,6 @@ _state = {
     "vectorizer": None,     # przygotowany mechanizm do porównywania tekstów
     "tfidf_matrix": None,   # "numeryczna mapa" wszystkich wpisów do szybkiego wyszukiwania
 }
-
-_refreshing = False         # Flaga informująca, czy trwa aktualizacja indeksu w tle.
-                            # Ustawiana na True w momencie rozpoczęcia odświeżania,
-                            # aby kolejne zapytania nie uruchomiły równoległej aktualizacji.
-
-_refresh_lock = Lock()      # Blokada zabezpieczająca sekcję odpowiedzialną za start odświeżania.
-                            # Gwarantuje, że tylko jeden wątek naraz może rozpocząć proces aktualizacji indeksu,
-                            # co chroni przed wielokrotnym równoczesnym pobieraniem danych i nadpisywaniem pamięci.
 
 
 # __________ Funkcje pomocnicze (przetwarzanie danych i budowa indeksu) __________
@@ -133,111 +122,95 @@ def build_index(posts):                         # buduje TF-IDF na bazie title+e
         doc = f"{p['title']} {p['excerpt']} {p['content']}"
         documents.append(doc)                   # dodajemy gotowy tekst do listy "documents"
 
-    vectorizer = TfidfVectorizer(               # TfidfVectorizer to narzędzie, które zamienia tekst na liczby. Dzięki temu wyszukiwarka „rozumie”, które teksty są najbardziej pasujące.
-
+    vectorizer = TfidfVectorizer(               # TfidfVectorizer to narzędzie, które zamienia tekst na liczby. Dzięki temu wyszukiwarka „rozumie”, które teksty są najbardziej pasujące
         max_features=40000,                     # ograniczamy maksymalną liczbę słów, które model zapamięta (ochrona pamięci serwera)
-
         ngram_range=(1, 2),                     # bierzemy pod uwagę od pojedynczych słów do pary słów
     )
 
-    tfidf_matrix = vectorizer.fit_transform(documents)
-    # Tutaj dzieje się magia:
-    # Każdy wpis zamieniany jest na wektor liczb.
-    # To taka "numeryczna mapa tekstu",
-    # dzięki której komputer może porównywać teksty matematycznie.
+    tfidf_matrix = vectorizer.fit_transform(documents)  # każdy wpis zamieniany jest na wektor liczb
 
-    _state["posts"] = posts
-    # Zapisujemy oryginalne wpisy w pamięci aplikacji.
-
-    _state["vectorizer"] = vectorizer
-    # Zapisujemy "mechanizm tłumaczący tekst na liczby",
-    # żeby później móc zamienić pytanie użytkownika w ten sam sposób.
-
-    _state["tfidf_matrix"] = tfidf_matrix
-    # Zapisujemy gotową macierz liczbową wszystkich wpisów.
-    # To właśnie na niej będziemy liczyć podobieństwo do pytania.
-
-    _state["last_index_time"] = int(time.time())
-    # Zapamiętujemy moment stworzenia indeksu,
-    # żeby wiedzieć, kiedy trzeba go odświeżyć (np. po 7 dniach).
+    _state["posts"] = posts                             # zapisujemy oryginalne wpisy w pamięci aplikacji
+    _state["vectorizer"] = vectorizer                   # zapisujemy "mechanizm tłumaczący tekst na liczby", żeby później zamienić pytanie użytkownika w ten sam sposób
+    _state["tfidf_matrix"] = tfidf_matrix               # zapisujemy gotową macierz liczbową wszystkich wpisów (na niej będziemy liczyć podobieństwo)
+    _state["last_index_time"] = int(time.time())        # zapamiętujemy moment stworzenia indeksu, żeby odświeżyć po 7 dniach
 
 
-def ensure_index_fresh() -> None:
-    """
-    Odświeża indeks, jeśli minął TTL lub indeksu nie ma.
-    """
+def ensure_index_fresh():                               # odświeża indeks, jeśli minął TTL lub indeksu nie ma
     now = int(time.time())
     if _state["tfidf_matrix"] is None or (now - _state["last_index_time"]) > CACHE_TTL_SECONDS:
         posts = fetch_wp_posts()
         build_index(posts)
 
 
-def extract_context_around_keyword(text: str, query: str, window: int = 400) -> str:
-    """
-    Zwraca fragment tekstu wokół pierwszego wystąpienia słowa z zapytania.
-    Jeśli nie znajdzie dopasowania, zwraca początek tekstu.
-    """
-
-    if not text:
+def extract_context_around_keyword(text, query, window = 400):      # funkcja wycina fragment artykułu wokół słowa, o które pyta użytkownik, jeśli tego słowa nie znajdzie, zwraca po prostu początek tekstu
+    if not text:                                                    # jeśli tekst jest pusty zwracamy pusty wynik
         return ""
 
     text_lower = text.lower()
     query_lower = query.lower()
 
-    pos = text_lower.find(query_lower)
+    pos = text_lower.find(query_lower)                  # szukamy pozycji, w której w tekście pojawia się słowo z zapytania (jeśli nie ma będzie -1)
 
-    # Jeśli nie znaleziono słowa — zwracamy początek tekstu
     if pos == -1:
-        return text[:window * 2].strip()
+        return text[:window * 2].strip()                # gdy słowa nie ma pokazujemy początek tekstu jako ogólny podgląd wpisu (pierwsze 800 znaków -> window = 400)
 
-    start = max(pos - window, 0)
-    end = min(pos + len(query) + window, len(text))
+    start = max(pos - window, 0)                        # ustalamy, od którego miejsca zacząć wycinanie fragmentu (400 znaków wcześniej) lub 0 jeśli słowo jest blisko początku
+    end = min(pos + len(query) + window, len(text))     # ustalamy, gdzie zakończyć wycinanie fragmentu (400 znaków po słowie)
 
-    snippet = text[start:end].strip()
+    snippet = text[start:end].strip()                   # wycinamy wyliczony fragment z oryginalnego tekstu
 
-    # Dodajemy "..." jeśli ucięliśmy początek lub koniec
-    if start > 0:
+    
+    if start > 0:                                       # dodajemy "..." jeśli ucięliśmy początek lub koniec
         snippet = "..." + snippet
+
+
     if end < len(text):
         snippet = snippet + "..."
 
-    return snippet
+    return snippet                                      # zwracamy gotowy fragment tekstu, który będzie pokazany jako kontekst dopasowania
     
 
 def search_posts(question, top_k = TOP_K):
-    ensure_index_fresh()
+    ensure_index_fresh()                                            # upewniamy się, że mamy aktualny indeks bloga
 
-    vectorizer: TfidfVectorizer = _state["vectorizer"]
+    vectorizer: TfidfVectorizer = _state["vectorizer"]              # pobieramy z pamięci vectorizer,tfidf_matrix, listę wpisów blogowych
     tfidf_matrix = _state["tfidf_matrix"]
     posts = _state["posts"]
 
-    q_vec = vectorizer.transform([question])
-    sims = cosine_similarity(q_vec, tfidf_matrix).flatten()
+    q_vec = vectorizer.transform([question])                        # zamieniamy pytanie użytkownika na formę liczbową, żeby komputer mógł je porównać z wpisami
 
-    idx_sorted = sims.argsort()[::-1][:top_k]
+    sims = cosine_similarity(q_vec, tfidf_matrix).flatten()         # liczymy, jak bardzo pytanie jest podobne do każdego wpisu
 
-    best = float(sims[idx_sorted[0]]) if len(idx_sorted) else 0.0
-    if best < MIN_SIMILARITY:
+    idx_sorted = sims.argsort()[::-1][:top_k]                       # sortujemy wpisy od najbardziej podobnych do najmniej i bierzemy top
+
+    best = float(sims[idx_sorted[0]]) if len(idx_sorted) else 0.0   # sprawdzamy, jaki jest najlepszy wynik dopasowania
+
+    if best < MIN_SIMILARITY:               # jeśli nawet najlepszy wynik jest zbyt słaby, uznajemy, że nie znaleziono sensownych wpisów
         return []
 
-    results = []
-    for idx in idx_sorted:
+
+    results = []                            # tutaj będziemy zbierać gotowe wyniki do pokazania użytkownikowi
+
+    for idx in idx_sorted:                  # pomijamy wpisy, które są zbyt słabo dopasowane
         score = float(sims[idx])
         if score < MIN_SIMILARITY:
             continue
 
-        p = posts[idx]
-        excerpt = p["excerpt"] or ""
-        if len(excerpt) > 240:
-            excerpt = excerpt[:240] + "…"
+        p = posts[idx]                      # pobieramy konkretny wpis z listy
 
-        context_snippet = extract_context_around_keyword(
+        excerpt = p["excerpt"] or ""        # bierzemy krótki opis wpisu
+
+        if len(excerpt) > 240:
+            excerpt = excerpt[:240] + "…"   # jeśli opis jest długi, skracamy go
+
+        context_snippet = extract_context_around_keyword(           # wycinamy fragment artykułu wokół słowa z pytania, żeby pokazać kontekst dopasowania.
             p["content"],
             question,
             window=400
         )
+        
 
-        results.append({
+        results.append({                    # dodajemy gotowy wpis do listy wyników
             "title": p["title"],
             "url": p["url"],
             "excerpt": excerpt,
@@ -245,21 +218,18 @@ def search_posts(question, top_k = TOP_K):
             "score": score,
         })
 
-    return results
+    return results                          # zwracamy listę najlepiej dopasowanych wpisów
 
-
-def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
-    # 1) Jeśli wyszukiwarka nie znalazła żadnych wpisów, nie pytamy AI.
-    #    Model językowy ma tendencję do "dopowiadania" ogólników, więc robimy twardy fallback.
+def workers_ai_summarize(question, results):
+    # 1) jeśli wyszukiwarka nie znalazła żadnych wpisów, nie pytamy AI
     if not results:
-        return "Nie znalazłam wpisów pasujących do tego tematu. Spróbuj użyć innych słów lub doprecyzuj pytanie."
+        return "Nie znalazłem wpisów pasujących do tego tematu. Spróbuj użyć innych słów lub doprecyzuj pytanie."
 
-    # 2) Jeśli nie mamy dostępu do AI (brak tokenów), nadal zwracamy same wyniki wyszukiwania.
+    # 2) jeśli nie mamy dostępu do AI, nadal zwracamy same wyniki wyszukiwania.
     if not CF_ACCOUNT_ID or not CF_API_TOKEN:
-        return "Znalazłam pasujące wpisy poniżej."
+        return "Znalazłem pasujące wpisy poniżej."
 
-    # 3) Budujemy czytelną, numerowaną listę wyników dla AI (max 3),
-    #    żeby model wiedział ile ma linków i nie dopisywał kolejnych.
+    # 3) Budujemy czytelną, numerowaną listę wyników dla AI (max 3), żeby model wiedział ile ma linków i nie dopisywał kolejnych
     items = "\n".join(
          [
             f"{i+1}. TYTUŁ: {r['title']}\n"
@@ -270,14 +240,13 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
     )
     n = min(len(results), 3)
 
-    # 4) Prompt: naturalnie, ale twardo trzymamy się liczby wyników i zakazu nowych linków.
     prompt = (
         "Jesteś asystentem mojego bloga.\n"
         "Dostajesz listę wyników wyszukiwania z bloga. To są jedyne wpisy, na które możesz się powołać.\n"
         "Nie dodawaj żadnych innych wpisów, tytułów ani linków.\n\n"
         f"Masz dokładnie {n} wynik(ów). Opisz dokładnie {n} wpis(ów), ani mniej, ani więcej.\n"
         "Odpowiedź ma brzmieć naturalnie, krótko i konkretnie.\n"
-        "Dla każdego wpisu podaj do max 3 zdań opisu oparte wyłącznie na OPISIE z listy.\n"
+        "Dla każdego wpisu podaj do max 3 zdań opisu oparte wyłącznie na tekscie z listy.\n"
         "Nie pisz osobnej sekcji 'Linki:' i nie dodawaj dodatkowych propozycji.\n\n"
         f"Pytanie użytkownika: {question}\n\n"
         f"WYNIKI:\n{items}\n"
@@ -293,33 +262,38 @@ def workers_ai_summarize(question: str, results: List[Dict[str, Any]]) -> str:
         r = requests.post(url, headers=headers, json={"prompt": prompt}, timeout=30)
 
         if r.status_code == 429:
-            return "Limit AI wyczerpany. Poniżej masz pasujące wpisy."
+            return "Znalazłem pasujące wpisy poniżej."
 
         r.raise_for_status()
         data = r.json()
 
         result = data.get("result", {})
-        return result.get("response", "").strip() or "Znalazłam pasujące wpisy poniżej."
+        return result.get("response", "").strip() or "Znalazłem pasujące wpisy poniżej."
 
     except Exception:
-        return "Błąd po stronie AI. Poniżej masz pasujące wpisy."
+        return "Znalazłem pasujące wpisy poniżej."
 
 
-# =========================
-# Routes
-# =========================
-@app.get("/health")
+# __________ Routes __________
+
+@app.api_route("/health", methods=["GET", "HEAD"])      # endpoint kontrolny, służy do sprawdzenia, czy backend działa + aktywacja uptimerobot
 def health():
     return {"ok": True}
 
 
-@app.post("/ask")
+@app.post("/ask")                   # główny endpoint czatu, przyjmuje zapytanie typu POST z JSON-em zawierającym pole "question"
 def ask(payload: AskRequest):
-    q = (payload.question or "").strip()
-    if not q:
+
+    q = (payload.question or "").strip()        # pobieramy pytanie użytkownika
+
+    if not q:                                   # jeśli po oczyszczeniu pytanie jest puste, zwracamy komunikat zamiast próbować wyszukiwać
         return {"answer": "Napisz proszę pytanie.", "results": []}
 
-    results = search_posts(q, top_k=TOP_K)
-    answer = workers_ai_summarize(q, results)
+    results = search_posts(q, top_k=TOP_K)      # szukamy w blogu wpisów najbardziej pasujących do pytania, zwracana jest lista najlepszych dopasowań.
+
+    answer = workers_ai_summarize(q, results)   # na podstawie znalezionych wpisów generujemy odpowiedź
 
     return {"answer": answer, "results": results}
+    # Zwracamy odpowiedź w formacie JSON:
+    # - "answer" → tekstowa odpowiedź dla użytkownika
+    # - "results" → lista dopasowanych wpisów (tytuł, link, fragment itd.)
