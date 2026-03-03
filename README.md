@@ -1,4 +1,4 @@
-# 🐺 Warkan -- Cost-Aware AI Blog Assistant
+# 🐺 Warkan - Cost-Aware AI Blog Assistant
 
 Warkan is a custom Retrieval-Augmented Generation (RAG) system
 integrated with a blog:
