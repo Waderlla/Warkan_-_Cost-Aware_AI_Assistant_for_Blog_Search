@@ -10,6 +10,9 @@ Projekt został zaprojektowany jako lekki, kontrolowany kosztowo i
 wyszukiwanie i streszczanie treści blogowych bez generowania stałych
 kosztów infrastrukturalnych.
 
+![screen](screenshots/screen.png)
+
+
 ------------------------------------------------------------------------
 
 ## Cel projektu
