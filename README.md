@@ -5,15 +5,12 @@ integrated with a blog:
 
 🔗 https://olgamironczuk.pl/warkan/
 
-![screen](screenshots/screen.png)
-
 The project was designed as a lightweight, cost-aware and
 architecturally simplified AI assistant whose purpose is to search and
 summarize blog content without generating fixed infrastructure costs.
 
-This is not a classic chatbot built purely around a language model.\
-It is a system where the retrieval layer is as important as the
-generative layer.
+![screen](screenshots/screen.png)
+
 
 ------------------------------------------------------------------------
 
