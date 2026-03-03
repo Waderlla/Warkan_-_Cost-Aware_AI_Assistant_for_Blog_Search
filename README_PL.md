@@ -10,7 +10,9 @@ Projekt został zaprojektowany jako lekki, kontrolowany kosztowo i
 wyszukiwanie i streszczanie treści blogowych bez generowania stałych
 kosztów infrastrukturalnych.
 
-![screen](screenshots/screen.png)
+<p align="center">
+  <img src="screenshots/screen.png" width="600">
+</p>
 
 
 ------------------------------------------------------------------------
@@ -96,6 +98,11 @@ Model otrzymuje:
 -   wycięte fragmenty zamiast całych artykułów,
 -   precyzyjny prompt ograniczający zakres odpowiedzi,
 -   zakaz dodawania nowych źródeł.
+
+<p align="center">
+  <img src="screenshots/warkan.gif" width="400">
+</p
+
 
 ------------------------------------------------------------------------
 
