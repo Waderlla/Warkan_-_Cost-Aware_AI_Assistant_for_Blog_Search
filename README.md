@@ -5,6 +5,8 @@ integrated with a blog:
 
 🔗 https://olgamironczuk.pl/warkan/
 
+![screen](screenshots/screen.png)
+
 The project was designed as a lightweight, cost-aware and
 architecturally simplified AI assistant whose purpose is to search and
 summarize blog content without generating fixed infrastructure costs.
