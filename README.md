@@ -11,6 +11,7 @@ summarize blog content without generating fixed infrastructure costs.
 
 ![screen](screenshots/screen.png)
 
+<img src="screenshots/warkan.gif" width="600">
 
 ------------------------------------------------------------------------
 
