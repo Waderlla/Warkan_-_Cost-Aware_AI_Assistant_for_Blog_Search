@@ -1,7 +1,9 @@
-# 🐺 Warkan -- Świadomy kosztowo asystent AI dla bloga
+# 🐺 Warkan - Świadomy kosztowo asystent AI dla bloga
 
 Warkan to autorski system typu Retrieval-Augmented Generation (RAG),
-zintegrowany z blogiem: 🔗 https://olgamironczuk.pl/warkan/
+zintegrowany z blogiem: 
+
+🔗 https://olgamironczuk.pl/warkan/
 
 Projekt został zaprojektowany jako lekki, kontrolowany kosztowo i
 świadomie uproszczony architektonicznie asystent AI, którego celem jest
@@ -10,7 +12,7 @@ kosztów infrastrukturalnych.
 
 ------------------------------------------------------------------------
 
-## 🎯 Cel projektu
+## Cel projektu
 
 Celem było stworzenie systemu, który:
 
@@ -29,7 +31,7 @@ analizę danych, architekturę backendową oraz systemy AI.
 
 ------------------------------------------------------------------------
 
-## 🧠 Architektura systemu
+## Architektura systemu
 
 User → WordPress UI → FastAPI (Render)\
 → TF-IDF retrieval\
@@ -94,7 +96,7 @@ Model otrzymuje:
 
 ------------------------------------------------------------------------
 
-## 🛠 Tech Stack
+## Tech Stack
 
 ### Backend
 
@@ -116,9 +118,9 @@ Model otrzymuje:
 
 ------------------------------------------------------------------------
 
-## ⚙️ Jak działa system krok po kroku
+## Jak działa system krok po kroku
 
-### 1️⃣ Pobieranie wpisów
+### 1️. Pobieranie wpisów
 
 Backend pobiera wpisy z wybranej kategorii WordPress przez REST API.\
 Czyszczenie HTML odbywa się przy użyciu wyrażeń regularnych.
@@ -129,7 +131,7 @@ Do indeksu trafiają:
 -   excerpt
 -   pełna treść
 
-### 2️⃣ Budowa indeksu TF-IDF
+### 2️. Budowa indeksu TF-IDF
 
 Wykorzystano:
 
@@ -139,7 +141,7 @@ Wykorzystano:
 Indeks przechowywany jest w pamięci RAM serwera.\
 Nie istnieje zewnętrzny vector store.
 
-### 3️⃣ Cache z TTL
+### 3️. Cache z TTL
 
 Indeks posiada TTL = 7 dni.
 
@@ -153,7 +155,7 @@ następuje ponowne pobranie danych i przebudowa indeksu.
 Brak trwałego storage.\
 Brak bazy danych.
 
-### 4️⃣ Wyszukiwanie
+### 4️. Wyszukiwanie
 
 Zapytanie użytkownika:
 
@@ -164,7 +166,7 @@ Zapytanie użytkownika:
 5.  Jeżeli najlepszy wynik \< MIN_SIMILARITY → model nie jest
     wywoływany.
 
-### 5️⃣ Ekstrakcja kontekstu
+### 5️. Ekstrakcja kontekstu
 
 Zamiast wysyłać pełne artykuły:
 
@@ -178,7 +180,7 @@ Redukuje to:
 -   koszty inferencji,
 -   ryzyko halucynacji.
 
-### 6️⃣ Generowanie odpowiedzi
+### 6️. Generowanie odpowiedzi
 
 Model otrzymuje:
 
@@ -195,7 +197,7 @@ Fallback:
 
 ------------------------------------------------------------------------
 
-## 💰 Architektura zaprojektowana z myślą o kontroli kosztów
+## Architektura zaprojektowana z myślą o kontroli kosztów
 
 System został zaprojektowany z myślą o minimalizacji kosztów
 operacyjnych.
@@ -239,7 +241,7 @@ Projekt może działać bez generowania stałych kosztów utrzymania.
 
 ------------------------------------------------------------------------
 
-## 🔐 Bezpieczeństwo
+## Bezpieczeństwo
 
 -   Tokeny API przechowywane jako zmienne środowiskowe.
 -   Brak kluczy API i danych uwierzytelniających w repozytorium.
@@ -248,7 +250,7 @@ Projekt może działać bez generowania stałych kosztów utrzymania.
 
 ------------------------------------------------------------------------
 
-## 📈 Ograniczenia
+## Ograniczenia
 
 -   Brak pamięci rozmowy.
 -   Wyszukiwanie oparte na słowach kluczowych.
@@ -259,9 +261,9 @@ Ograniczenia wynikają ze świadomych decyzji architektonicznych.
 
 ------------------------------------------------------------------------
 
-## 🧠 Wnioski z projektu
+## Wnioski z projektu
 
-### 🔹 Najpierw wyszukiwanie, potem generowanie
+### Najpierw wyszukiwanie, potem generowanie
 
 Jakość odpowiedzi modelu zależy od jakości kontekstu bardziej niż od
 samego modelu.
@@ -274,7 +276,7 @@ TF-IDF + kontrolowany snippet znacząco redukują:
 
 Dobrze zaprojektowana warstwa retrieval jest kluczowa.
 
-### 🔹 Stateless architecture upraszcza system
+### Stateless architecture upraszcza system
 
 Brak pamięci rozmowy:
 
@@ -285,7 +287,7 @@ Brak pamięci rozmowy:
 
 Prostota może być przewagą.
 
-### 🔹 Koszt to element architektury
+### Koszt to element architektury
 
 Optymalizacja kosztów była elementem projektowania, nie kompromisem.
 
@@ -298,7 +300,7 @@ Decyzje:
 
 To pokazuje, że AI może być używane odpowiedzialnie.
 
-### 🔹 Cache w RAM często wystarcza
+### Cache w RAM często wystarcza
 
 Zamiast budować złożony system storage:
 
@@ -308,7 +310,7 @@ Zamiast budować złożony system storage:
 
 To uprościło architekturę i operacyjność.
 
-### 🔹 Kontrola promptu jest elementem bezpieczeństwa
+### Kontrola promptu jest elementem bezpieczeństwa
 
 Ograniczenie liczby wyników i długości odpowiedzi:
 
@@ -316,7 +318,7 @@ Ograniczenie liczby wyników i długości odpowiedzi:
 -   zwiększa przewidywalność,
 -   utrzymuje spójność systemu.
 
-### 🔹 RAG bez frameworków jest możliwy
+### RAG bez frameworków jest możliwy
 
 System został zbudowany bez LangChain i bez zewnętrznych orkiestratorów.
 
@@ -326,7 +328,7 @@ Pozwoliło to:
 -   zachować pełną kontrolę,
 -   uniknąć nadmiarowej abstrakcji.
 
-### 🔹 Monitoring jest częścią systemu
+### Monitoring jest częścią systemu
 
 Endpoint /health + UptimeRobot:
 
@@ -338,7 +340,7 @@ System to nie tylko kod, ale również operacyjność.
 
 ------------------------------------------------------------------------
 
-## 🏗 Filozofia projektu
+## Filozofia projektu
 
 Warkan nie jest próbą zbudowania najbardziej zaawansowanego chatbota.
 
