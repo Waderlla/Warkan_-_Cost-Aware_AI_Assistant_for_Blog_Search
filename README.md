@@ -15,7 +15,7 @@ generative layer.
 
 ------------------------------------------------------------------------
 
-## 🎯 Project Goal
+## Project Goal
 
 The objective was to build a system that:
 
@@ -33,7 +33,7 @@ combining data analysis, backend architecture, and AI systems.
 
 ------------------------------------------------------------------------
 
-## 🧠 System Architecture
+## System Architecture
 
 User → WordPress UI → FastAPI (Render)\
 → TF-IDF retrieval\
@@ -98,7 +98,7 @@ The model receives:
 
 ------------------------------------------------------------------------
 
-## 🛠 Tech Stack
+## Tech Stack
 
 ### Backend
 
@@ -120,9 +120,9 @@ The model receives:
 
 ------------------------------------------------------------------------
 
-## ⚙️ How the System Works Step by Step
+## How the System Works Step by Step
 
-### 1️⃣ Fetching Posts
+### 1️. Fetching Posts
 
 The backend retrieves posts from a selected WordPress category via REST
 API.\
@@ -134,7 +134,7 @@ Indexed content includes:
 -   excerpt
 -   full content
 
-### 2️⃣ Building the TF-IDF Index
+### 2️. Building the TF-IDF Index
 
 Configuration includes:
 
@@ -144,7 +144,7 @@ Configuration includes:
 The index is stored in server RAM.\
 No external vector store is used.
 
-### 3️⃣ Cache with TTL
+### 3️. Cache with TTL
 
 The index has a TTL of 7 days.
 
@@ -158,7 +158,7 @@ the system refetches data and rebuilds the index.
 No persistent storage.\
 No database.
 
-### 4️⃣ Retrieval and Minimum Similarity Threshold
+### 4️. Retrieval and Minimum Similarity Threshold
 
 The user query:
 
@@ -168,7 +168,7 @@ The user query:
 4.  TOP_K matches are selected.\
 5.  If the best score \< MIN_SIMILARITY → the model is not invoked.
 
-### 5️⃣ Snippet Extraction
+### 5️. Snippet Extraction
 
 Instead of sending full articles:
 
@@ -182,7 +182,7 @@ This reduces:
 -   inference cost,
 -   hallucination risk.
 
-### 6️⃣ Response Generation
+### 6️. Response Generation
 
 The model receives:
 
@@ -199,7 +199,7 @@ Fallback mechanisms:
 
 ------------------------------------------------------------------------
 
-## 💰 Cost-Aware Architecture
+## Cost-Aware Architecture
 
 The system was intentionally designed to minimize operational costs.
 
@@ -243,7 +243,7 @@ costs.
 
 ------------------------------------------------------------------------
 
-## 🔐 Security
+## Security
 
 -   API tokens are stored as environment variables.
 -   No API keys or credentials are included in the repository.
@@ -252,7 +252,7 @@ costs.
 
 ------------------------------------------------------------------------
 
-## 📈 Limitations
+## Limitations
 
 -   No conversation memory.
 -   Keyword-based retrieval (not semantic embeddings).
@@ -263,9 +263,9 @@ These limitations are conscious architectural decisions.
 
 ------------------------------------------------------------------------
 
-## 🧠 Lessons Learned
+## Lessons Learned
 
-### 🔹 Retrieval Before Generation
+### Retrieval Before Generation
 
 The quality of model responses depends more on context quality than on
 model size.
@@ -279,7 +279,7 @@ reduces:
 
 A well-designed retrieval layer is essential.
 
-### 🔹 Stateless Architecture Simplifies the System
+### Stateless Architecture Simplifies the System
 
 No conversation memory:
 
@@ -290,7 +290,7 @@ No conversation memory:
 
 Simplicity can be an advantage.
 
-### 🔹 Cost Is an Architectural Element
+### Cost Is an Architectural Element
 
 Cost optimization was part of the design, not a compromise.
 
@@ -303,7 +303,7 @@ Decisions include:
 
 AI can be implemented responsibly.
 
-### 🔹 RAM Cache Is Often Enough
+### RAM Cache Is Often Enough
 
 Instead of building complex storage:
 
@@ -313,7 +313,7 @@ Instead of building complex storage:
 
 This simplifies both architecture and operations.
 
-### 🔹 Prompt Control Is a Security Mechanism
+### Prompt Control Is a Security Mechanism
 
 Limiting results and response length:
 
@@ -321,7 +321,7 @@ Limiting results and response length:
 -   improves predictability,
 -   maintains system consistency.
 
-### 🔹 RAG Without Frameworks Is Possible
+### RAG Without Frameworks Is Possible
 
 The system was built without LangChain or external orchestration
 frameworks.
@@ -332,7 +332,7 @@ This allowed:
 -   complete control,
 -   avoidance of unnecessary abstraction.
 
-### 🔹 Monitoring Is Part of the System
+### Monitoring Is Part of the System
 
 Endpoint `/health` + UptimeRobot:
 
@@ -344,7 +344,7 @@ A system is not only code, but also operations.
 
 ------------------------------------------------------------------------
 
-## 🏗 Project Philosophy
+## Project Philosophy
 
 Warkan is not an attempt to build the most advanced chatbot.
 
