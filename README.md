@@ -9,9 +9,10 @@ The project was designed as a lightweight, cost-aware and
 architecturally simplified AI assistant whose purpose is to search and
 summarize blog content without generating fixed infrastructure costs.
 
-![screen](screenshots/screen.png)
+<p align="center">
+  <img src="screenshots/screen.png" width="600">
+</p>
 
-<img src="screenshots/warkan.gif" width="600">
 
 ------------------------------------------------------------------------
 
@@ -95,6 +96,11 @@ The model receives:
 -   extracted snippets instead of full articles,
 -   a tightly controlled prompt,
 -   explicit instruction not to add new sources.
+
+<p align="center">
+  <img src="screenshots/warkan.gif" width="400">
+</p>
+
 
 ------------------------------------------------------------------------
 
@@ -358,3 +364,4 @@ It is an attempt to build:
 
 The project demonstrates that AI can be implemented in a conscious and
 architecturally responsible way.
+
