@@ -12,9 +12,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 load_dotenv()
 
-# ==============================
-# Environment Configuration
-# ==============================
+
+# ---- Environment Configuration ----
 
 WP_BASE_URL = os.getenv("WP_BASE_URL", "")
 
@@ -25,15 +24,13 @@ CF_MODEL = os.getenv("CF_MODEL", "@cf/meta/llama-3.1-8b-instruct")
 WP_FETCH_PER_PAGE = int(os.getenv("WP_FETCH_PER_PAGE", "100"))
 MAX_POSTS_TO_INDEX = int(os.getenv("MAX_POSTS_TO_INDEX", "500"))
 TOP_K = int(os.getenv("TOP_K", "5"))
-MIN_SIMILARITY = float(os.getenv("MIN_SIMILARITY", "0.02"))
+MIN_SIMILARITY = float(os.getenv("MIN_SIMILARITY", "0.01"))
 
 WP_CATEGORY_ID = int(os.getenv("WP_CATEGORY_ID", "23"))
 
 CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "604800"))
 
-# ==============================
-# FastAPI Application
-# ==============================
+# ---- FastAPI Application ----
 
 app = FastAPI(title="Warkan")
 
@@ -46,9 +43,7 @@ app.add_middleware(
 class AskRequest(BaseModel):
     question: str
 
-# ==============================
-# In-Memory Application State
-# ==============================
+# ---- In-Memory Application State ----
 
 _state = {
     "last_index_time": 0,
@@ -57,9 +52,7 @@ _state = {
     "tfidf_matrix": None,
 }
 
-# ==============================
-# Utility Functions
-# ==============================
+# ---- Utility Functions ----
 
 def strip_html(text: str) -> str:
     text = re.sub(r"<[^>]+>", " ", text or "")
@@ -255,9 +248,7 @@ def workers_ai_summarize(question: str, results):
         return "Znalazłem pasujące wpisy poniżej."
 
 
-# ==============================
-# API Routes
-# ==============================
+# ---- API Routes ----
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
