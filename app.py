@@ -23,6 +23,7 @@ CF_MODEL = os.getenv("CF_MODEL", "@cf/meta/llama-3.2-3b-instruct")
 
 WP_FETCH_PER_PAGE = int(os.getenv("WP_FETCH_PER_PAGE", "100"))
 MAX_POSTS_TO_INDEX = int(os.getenv("MAX_POSTS_TO_INDEX", "500"))
+
 TOP_K = int(os.getenv("TOP_K", "3"))
 MIN_SIMILARITY = float(os.getenv("MIN_SIMILARITY", "0.04"))
 
@@ -131,12 +132,12 @@ def ensure_index_fresh():
         build_index(posts)
 
 
-def extract_context_around_keyword(text: str, query: str, window: int = 1200) -> str:
+def extract_context_around_keyword(text: str, query: str, window: int = 900) -> str:
     if not text:
         return ""
 
     text_lower = text.lower()
-    query_lower = query.lower()
+    query_lower = query.lower().strip()
 
     pos = text_lower.find(query_lower)
 
@@ -194,7 +195,7 @@ def search_posts(question: str, top_k: int = TOP_K):
         context_snippet = extract_context_around_keyword(
             p["content"],
             question,
-            window=1200,
+            window=900,
         )
 
         results.append({
@@ -247,36 +248,35 @@ def workers_ai_summarize(question: str, results):
     limited_results = results[:3]
     n = len(limited_results)
 
-    items = "\n".join(
+    items = "\n\n".join(
         [
-            f"{i + 1}. TYTUŁ: {r['title']}\n"
-            f"   LINK: {r['url']}\n"
-            f"   FRAGMENT:\n{r.get('snippet', '')}"
+            f"WYNIK {i + 1}\n"
+            f"TYTUŁ: {r['title']}\n"
+            f"LINK: {r['url']}\n"
+            f"FRAGMENT:\n{r.get('snippet', '')}"
             for i, r in enumerate(limited_results)
         ]
     )
 
     system_prompt = (
-        "Jesteś Warkanem, asystentem wyszukującym wpisy na blogu Olgi. "
+        "Jesteś Warkanem, asystentem bloga Olgi. "
         "Odpowiadasz wyłącznie po polsku. "
-        "Nie streszczasz całego artykułu. "
-        "Nie interpretujesz tekstu. "
-        "Nie dopowiadasz sensu wpisu. "
-        "Nie używasz wiedzy ogólnej. "
-        "Korzystasz wyłącznie z podanego fragmentu. "
-        "Twoim zadaniem jest powiedzieć krótko, dlaczego dany wynik może pasować do zapytania użytkownika. "
-        "Jeśli fragment nie pozwala rzetelnie opisać wpisu, napisz to wprost."
+        "Piszesz naturalnie, prosto i konkretnie. "
+        "Opisujesz znalezione wpisy blogowe na podstawie podanych fragmentów. "
+        "Nie dodajesz informacji spoza fragmentów. "
+        "Nie wymyślasz faktów ani sensu, którego nie ma w tekście. "
+        "Nie dodajesz żadnych innych tytułów, linków ani źródeł."
     )
 
     user_prompt = (
-        f"Zapytanie użytkownika: {question}\n\n"
-        f"Znalazłem {n} pasujący/e wpis/y.\n"
-        "Dla każdego wpisu napisz maksymalnie 1 krótkie zdanie.\n"
-        "Nie streszczaj fabuły ani całego wpisu.\n"
-        "Napisz tylko, co w podanym fragmencie łączy się z zapytaniem użytkownika.\n"
-        "Nie pisz ogólnych interpretacji.\n"
-        "Nie dodawaj informacji, których nie ma w fragmencie.\n"
-        "Jeśli fragment jest niejasny, napisz: 'Ten wpis może pasować do zapytania, ale fragment nie pozwala go rzetelnie opisać.'\n\n"
+        f"Pytanie użytkownika: {question}\n\n"
+        f"Poniżej masz {n} znaleziony/e wpis/y z bloga.\n"
+        "Dla każdego wyniku napisz maksymalnie 2 krótkie zdania.\n"
+        "Nie oceniaj, czy wynik pasuje do zapytania.\n"
+        "Nie pisz: 'ten wpis może pasować'.\n"
+        "Nie używaj sztucznego ani akademickiego języka.\n"
+        "Po prostu opisz, o czym jest dany wpis na podstawie fragmentu.\n"
+        "Jeśli fragment jest za słaby, napisz krótko: 'Ten fragment nie pozwala rzetelnie opisać wpisu.'\n\n"
         f"WYNIKI:\n{items}"
     )
 
@@ -299,7 +299,7 @@ def workers_ai_summarize(question: str, results):
             },
         ],
         "temperature": 0,
-        "max_tokens": 250,
+        "max_tokens": 350,
     }
 
     try:
