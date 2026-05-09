@@ -131,7 +131,7 @@ def ensure_index_fresh():
         build_index(posts)
 
 
-def extract_context_around_keyword(text: str, query: str, window: int = 700) -> str:
+def extract_context_around_keyword(text: str, query: str, window: int = 1200) -> str:
     if not text:
         return ""
 
@@ -194,7 +194,7 @@ def search_posts(question: str, top_k: int = TOP_K):
         context_snippet = extract_context_around_keyword(
             p["content"],
             question,
-            window=700,
+            window=1200,
         )
 
         results.append({
@@ -251,31 +251,32 @@ def workers_ai_summarize(question: str, results):
         [
             f"{i + 1}. TYTUŁ: {r['title']}\n"
             f"   LINK: {r['url']}\n"
-            f"   TEKST:\n{r.get('snippet', '')}"
+            f"   FRAGMENT:\n{r.get('snippet', '')}"
             for i, r in enumerate(limited_results)
         ]
     )
 
     system_prompt = (
-        "Jesteś Warkanem, asystentem bloga Olgi. "
+        "Jesteś Warkanem, asystentem wyszukującym wpisy na blogu Olgi. "
         "Odpowiadasz wyłącznie po polsku. "
-        "Piszesz naturalnie, prosto i po ludzku. "
-        "Twoim zadaniem jest krótko opisać znalezione wpisy blogowe. "
-        "Korzystasz tylko z przekazanych fragmentów tekstu. "
-        "Nie dodajesz informacji spoza tekstu. "
-        "Nie wymyślasz znaczenia wpisu. "
-        "Nie dodajesz żadnych innych tytułów, linków ani źródeł."
+        "Nie streszczasz całego artykułu. "
+        "Nie interpretujesz tekstu. "
+        "Nie dopowiadasz sensu wpisu. "
+        "Nie używasz wiedzy ogólnej. "
+        "Korzystasz wyłącznie z podanego fragmentu. "
+        "Twoim zadaniem jest powiedzieć krótko, dlaczego dany wynik może pasować do zapytania użytkownika. "
+        "Jeśli fragment nie pozwala rzetelnie opisać wpisu, napisz to wprost."
     )
 
     user_prompt = (
-        f"Pytanie użytkownika: {question}\n\n"
-        f"Poniżej masz {n} znaleziony/e wpis/y z bloga.\n"
-        "Napisz krótki opis każdego wpisu.\n"
-        "Nie pisz technicznie ani akademicko.\n"
-        "Nie zaczynaj od słów: 'Scenariusz', 'Artykuł przedstawia', 'Tekst opisuje'.\n"
-        "Najlepiej zaczynaj naturalnie, np. 'W tym wpisie autorka pisze o...'.\n"
-        "Maksymalnie 2 zdania na jeden wpis.\n"
-        "Opisz tylko to, co wynika z podanego fragmentu.\n\n"
+        f"Zapytanie użytkownika: {question}\n\n"
+        f"Znalazłem {n} pasujący/e wpis/y.\n"
+        "Dla każdego wpisu napisz maksymalnie 1 krótkie zdanie.\n"
+        "Nie streszczaj fabuły ani całego wpisu.\n"
+        "Napisz tylko, co w podanym fragmencie łączy się z zapytaniem użytkownika.\n"
+        "Nie pisz ogólnych interpretacji.\n"
+        "Nie dodawaj informacji, których nie ma w fragmencie.\n"
+        "Jeśli fragment jest niejasny, napisz: 'Ten wpis może pasować do zapytania, ale fragment nie pozwala go rzetelnie opisać.'\n\n"
         f"WYNIKI:\n{items}"
     )
 
@@ -296,7 +297,9 @@ def workers_ai_summarize(question: str, results):
                 "role": "user",
                 "content": user_prompt,
             },
-        ]
+        ],
+        "temperature": 0,
+        "max_tokens": 250,
     }
 
     try:
