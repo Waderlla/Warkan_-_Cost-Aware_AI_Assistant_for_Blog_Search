@@ -23,7 +23,7 @@ CF_MODEL = os.getenv("CF_MODEL", "@cf/google/gemma-3-4b-it")
 
 WP_FETCH_PER_PAGE = int(os.getenv("WP_FETCH_PER_PAGE", "100"))
 MAX_POSTS_TO_INDEX = int(os.getenv("MAX_POSTS_TO_INDEX", "500"))
-TOP_K = int(os.getenv("TOP_K", "5"))
+TOP_K = int(os.getenv("TOP_K", "3"))
 MIN_SIMILARITY = float(os.getenv("MIN_SIMILARITY", "0.01"))
 
 WP_CATEGORY_ID = int(os.getenv("WP_CATEGORY_ID", "23"))
@@ -132,7 +132,7 @@ def ensure_index_fresh():
         build_index(posts)
 
 
-def extract_context_around_keyword(text: str, query: str, window: int = 400) -> str:
+def extract_context_around_keyword(text: str, query: str, window: int = 200) -> str:
     if not text:
         return ""
 
@@ -190,7 +190,7 @@ def search_posts(question: str, top_k: int = TOP_K):
         context_snippet = extract_context_around_keyword(
             p["content"],
             question,
-            window=400,
+            window=200,
         )
 
         results.append({
@@ -223,6 +223,7 @@ def extract_ai_response(data: dict) -> str:
 
             if isinstance(first, dict):
                 message = first.get("message", {})
+
                 if isinstance(message, dict) and message.get("content"):
                     return message.get("content", "").strip()
 
@@ -239,16 +240,17 @@ def workers_ai_summarize(question: str, results):
     if not CF_ACCOUNT_ID or not CF_API_TOKEN:
         return "Znalazłem pasujące wpisy poniżej."
 
+    limited_results = results[:2]
+    n = len(limited_results)
+
     items = "\n".join(
         [
             f"{i + 1}. TYTUŁ: {r['title']}\n"
             f"   LINK: {r['url']}\n"
             f"   TEKST:\n{r.get('snippet', '')}"
-            for i, r in enumerate(results[:3])
+            for i, r in enumerate(limited_results)
         ]
     )
-
-    n = min(len(results), 3)
 
     system_prompt = (
         "Jesteś asystentem bloga. "
@@ -286,7 +288,7 @@ def workers_ai_summarize(question: str, results):
     }
 
     try:
-        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        r = requests.post(url, headers=headers, json=payload, timeout=20)
 
         if r.status_code == 429:
             return "Znalazłem pasujące wpisy poniżej."
