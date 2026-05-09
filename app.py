@@ -132,7 +132,7 @@ def ensure_index_fresh():
         build_index(posts)
 
 
-def extract_context_around_keyword(text: str, query: str, window: int = 200) -> str:
+def extract_context_around_keyword(text: str, query: str, window: int = 700) -> str:
     if not text:
         return ""
 
@@ -151,6 +151,7 @@ def extract_context_around_keyword(text: str, query: str, window: int = 200) -> 
 
     if start > 0:
         snippet = "..." + snippet
+
     if end < len(text):
         snippet = snippet + "..."
 
@@ -194,7 +195,7 @@ def search_posts(question: str, top_k: int = TOP_K):
         context_snippet = extract_context_around_keyword(
             p["content"],
             question,
-            window=200,
+            window=700,
         )
 
         results.append({
@@ -259,7 +260,10 @@ def workers_ai_summarize(question: str, results):
     system_prompt = (
         "Jesteś asystentem bloga. "
         "Odpowiadasz wyłącznie po polsku. "
-        "Korzystasz tylko z przekazanych wyników wyszukiwania. "
+        "Korzystasz tylko z przekazanych fragmentów tekstu. "
+        "Nie interpretujesz poza tekstem. "
+        "Nie zgadujesz znaczenia wpisu. "
+        "Nie dodajesz informacji, których nie ma w tekście. "
         "Nie dodajesz żadnych innych tytułów, linków ani źródeł."
     )
 
@@ -267,7 +271,9 @@ def workers_ai_summarize(question: str, results):
         f"Pytanie użytkownika: {question}\n\n"
         f"Masz dokładnie {n} wynik(ów). Opisz dokładnie {n} wynik(ów), ani mniej, ani więcej.\n"
         "Maksymalnie 3 zdania na jeden wynik.\n"
-        "Odpowiedź ma być naturalna, krótka i konkretna.\n\n"
+        "Odpowiedź ma być naturalna, krótka i konkretna.\n"
+        "Nie streszczaj całego artykułu, jeśli nie wynika to z fragmentu.\n"
+        "Opisz tylko to, co wprost wynika z podanego TEKSTU.\n\n"
         f"WYNIKI:\n{items}"
     )
 
