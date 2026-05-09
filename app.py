@@ -19,7 +19,7 @@ WP_BASE_URL = os.getenv("WP_BASE_URL", "")
 
 CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID", "")
 CF_API_TOKEN = os.getenv("CF_API_TOKEN", "")
-CF_MODEL = os.getenv("CF_MODEL", "CF_MODEL=@cf/google/gemma-3-3b-it")
+CF_MODEL = os.getenv("CF_MODEL", "CF_MODEL=@cf/google/gemma-3-4b-it")
 
 WP_FETCH_PER_PAGE = int(os.getenv("WP_FETCH_PER_PAGE", "100"))
 MAX_POSTS_TO_INDEX = int(os.getenv("MAX_POSTS_TO_INDEX", "500"))
