@@ -27,7 +27,6 @@ TOP_K = int(os.getenv("TOP_K", "3"))
 MIN_SIMILARITY = float(os.getenv("MIN_SIMILARITY", "0.04"))
 
 WP_CATEGORY_ID = int(os.getenv("WP_CATEGORY_ID", "23"))
-
 CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "604800"))
 
 
@@ -258,22 +257,25 @@ def workers_ai_summarize(question: str, results):
     )
 
     system_prompt = (
-        "Jesteś asystentem bloga. "
+        "Jesteś Warkanem, asystentem bloga Olgi. "
         "Odpowiadasz wyłącznie po polsku. "
+        "Piszesz naturalnie, prosto i po ludzku. "
+        "Twoim zadaniem jest krótko opisać znalezione wpisy blogowe. "
         "Korzystasz tylko z przekazanych fragmentów tekstu. "
-        "Nie interpretujesz poza tekstem. "
-        "Nie zgadujesz znaczenia wpisu. "
-        "Nie dodajesz informacji, których nie ma w tekście. "
+        "Nie dodajesz informacji spoza tekstu. "
+        "Nie wymyślasz znaczenia wpisu. "
         "Nie dodajesz żadnych innych tytułów, linków ani źródeł."
     )
 
     user_prompt = (
         f"Pytanie użytkownika: {question}\n\n"
-        f"Masz dokładnie {n} wynik(ów). Opisz dokładnie {n} wynik(ów), ani mniej, ani więcej.\n"
-        "Maksymalnie 3 zdania na jeden wynik.\n"
-        "Odpowiedź ma być naturalna, krótka i konkretna.\n"
-        "Nie streszczaj całego artykułu, jeśli nie wynika to z fragmentu.\n"
-        "Opisz tylko to, co wprost wynika z podanego TEKSTU.\n\n"
+        f"Poniżej masz {n} znaleziony/e wpis/y z bloga.\n"
+        "Napisz krótki opis każdego wpisu.\n"
+        "Nie pisz technicznie ani akademicko.\n"
+        "Nie zaczynaj od słów: 'Scenariusz', 'Artykuł przedstawia', 'Tekst opisuje'.\n"
+        "Najlepiej zaczynaj naturalnie, np. 'W tym wpisie autorka pisze o...'.\n"
+        "Maksymalnie 2 zdania na jeden wpis.\n"
+        "Opisz tylko to, co wynika z podanego fragmentu.\n\n"
         f"WYNIKI:\n{items}"
     )
 
