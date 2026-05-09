@@ -30,6 +30,7 @@ WP_CATEGORY_ID = int(os.getenv("WP_CATEGORY_ID", "23"))
 
 CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "604800"))
 
+
 # ---- FastAPI Application ----
 
 app = FastAPI(title="Warkan")
@@ -38,10 +39,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[WP_BASE_URL],
     allow_methods=["GET", "POST"],
+    allow_headers=["*"],
 )
+
 
 class AskRequest(BaseModel):
     question: str
+
 
 # ---- In-Memory Application State ----
 
@@ -51,6 +55,7 @@ _state = {
     "vectorizer": None,
     "tfidf_matrix": None,
 }
+
 
 # ---- Utility Functions ----
 
@@ -172,11 +177,13 @@ def search_posts(question: str, top_k: int = TOP_K):
 
     for idx in idx_sorted:
         score = float(sims[idx])
+
         if score < MIN_SIMILARITY:
             continue
 
         p = posts[idx]
         excerpt = p["excerpt"] or ""
+
         if len(excerpt) > 240:
             excerpt = excerpt[:240] + "…"
 
@@ -197,6 +204,34 @@ def search_posts(question: str, top_k: int = TOP_K):
     return results
 
 
+def extract_ai_response(data: dict) -> str:
+    result = data.get("result", {})
+
+    if isinstance(result, str):
+        return result.strip()
+
+    if isinstance(result, dict):
+        if result.get("response"):
+            return result.get("response", "").strip()
+
+        if result.get("text"):
+            return result.get("text", "").strip()
+
+        choices = result.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0]
+
+            if isinstance(first, dict):
+                message = first.get("message", {})
+                if isinstance(message, dict) and message.get("content"):
+                    return message.get("content", "").strip()
+
+                if first.get("text"):
+                    return first.get("text", "").strip()
+
+    return ""
+
+
 def workers_ai_summarize(question: str, results):
     if not results:
         return "Nie znalazłem pasujących wpisów. Spróbuj użyć innych słów lub doprecyzować pytanie."
@@ -206,45 +241,65 @@ def workers_ai_summarize(question: str, results):
 
     items = "\n".join(
         [
-            f"{i+1}. TYTUŁ: {r['title']}\n"
+            f"{i + 1}. TYTUŁ: {r['title']}\n"
             f"   LINK: {r['url']}\n"
-            f"   TEKST:\n{r.get('snippet','')}"
+            f"   TEKST:\n{r.get('snippet', '')}"
             for i, r in enumerate(results[:3])
         ]
     )
+
     n = min(len(results), 3)
 
-    prompt = (
-        "Jesteś asystentem mojego bloga.\n"
-        "Dostajesz wyniki wyszukiwania z bloga. To są jedyne źródła, z których możesz korzystać.\n"
-        "Nie dodawaj żadnych innych tytułów ani linków.\n"
-        "Odpowiadaj wyłącznie po polsku.\n\n"
+    system_prompt = (
+        "Jesteś asystentem bloga. "
+        "Odpowiadasz wyłącznie po polsku. "
+        "Korzystasz tylko z przekazanych wyników wyszukiwania. "
+        "Nie dodajesz żadnych innych tytułów, linków ani źródeł."
+    )
+
+    user_prompt = (
+        f"Pytanie użytkownika: {question}\n\n"
         f"Masz dokładnie {n} wynik(ów). Opisz dokładnie {n} wynik(ów), ani mniej, ani więcej.\n"
         "Maksymalnie 3 zdania na jeden wynik.\n"
         "Odpowiedź ma być naturalna, krótka i konkretna.\n\n"
-        f"Pytanie użytkownika: {question}\n\n"
-        f"WYNIKI:\n{items}\n"
+        f"WYNIKI:\n{items}"
     )
 
     url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/run/{CF_MODEL}"
+
     headers = {
         "Authorization": f"Bearer {CF_API_TOKEN}",
         "Content-Type": "application/json",
     }
 
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
+        ]
+    }
+
     try:
-        r = requests.post(url, headers=headers, json={"prompt": prompt}, timeout=30)
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
 
         if r.status_code == 429:
             return "Znalazłem pasujące wpisy poniżej."
 
         r.raise_for_status()
+
         data = r.json()
-        result = data.get("result", {})
+        answer = extract_ai_response(data)
 
-        return result.get("response", "").strip() or "Znalazłem pasujące wpisy poniżej."
+        return answer or "Znalazłem pasujące wpisy poniżej."
 
-    except Exception:
+    except Exception as e:
+        print(f"Workers AI error: {e}")
         return "Znalazłem pasujące wpisy poniżej."
 
 
